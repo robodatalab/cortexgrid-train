@@ -1,105 +1,128 @@
-"""Supervised fine-tuning with LoRA."""
+"""Supervised fine-tuning with LoRA.
+
+Supports only the Huggingface model API.
+"""
 
 from __future__ import annotations
 
-from typing import Any
+import logging
+from typing import Any, Callable, Protocol
 
 import peft
 import torch
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
+from transformers import get_cosine_schedule_with_warmup
 
-from model_gateway import deploy_model, Message, Tool, ToolSpec
-from model_gateway.utils import normalize_tools
+from model_gateway import Message, ToolSpec
+from model_gateway.providers.huggingface import HuggingFaceModel
 
-
-def tokenize_masking_non_assistant_messages(
-    messages: list[Message],
-    tokenizer: Any,
-    tool_specs: list[ToolSpec],
-) -> dict[str, torch.Tensor]:
-    """Tokenize a conversation, masking non-assistant turns with -100 labels."""
-    prompt = tokenizer.apply_chat_template(
-        messages,
-        tools=tool_specs,
-        tokenize=False,
-        add_generation_prompt=False,
-    )
-    inputs = tokenizer(prompt, return_tensors="pt")
-    input_ids = inputs["input_ids"]
-    attention_mask = inputs["attention_mask"]
-
-    labels = torch.full_like(input_ids, -100)
-
-    for i, message in enumerate(messages):
-        if message["role"] == "assistant":
-            if i == 0:
-                first_token_idx = 0
-            else:
-                prompt_before = tokenizer.apply_chat_template(
-                    messages[:i],
-                    tools=tool_specs,
-                    tokenize=False,
-                    add_generation_prompt=True,
-                )
-                first_token_idx = tokenizer(prompt_before, return_tensors="pt")[
-                    "input_ids"
-                ].shape[-1]
-
-            prompt_after = tokenizer.apply_chat_template(
-                messages[: i + 1],
-                tools=tool_specs,
-                tokenize=False,
-                add_generation_prompt=False,
-            )
-            last_token_idx = tokenizer(prompt_after, return_tensors="pt")[
-                "input_ids"
-            ].shape[-1]
-
-            labels[0, first_token_idx:last_token_idx] = input_ids[
-                0, first_token_idx:last_token_idx
-            ]
-
-    return {
-        "input_ids": input_ids,
-        "attention_mask": attention_mask,
-        "labels": labels,
-    }
+log = logging.getLogger(__name__)
 
 
-def train_sft(model_id: str, tools: list[Tool], train_ds: Dataset) -> None:
-    """Run supervised fine-tuning with LoRA on a deployed model."""
-    model = deploy_model(model_id=model_id)
+class LossFn(Protocol):
+    """Custom loss function: (model_outputs, batch) -> scalar tensor."""
+
+    def __call__(
+        self, outputs: Any, batch: dict[str, torch.Tensor]
+    ) -> torch.Tensor: ...
+
+
+def _default_loss(outputs: Any, batch: dict[str, torch.Tensor]) -> torch.Tensor:
+    """Standard causal LM cross-entropy (already computed by HuggingFace)."""
+    return outputs.loss
+
+
+def train_sft(
+    deployed: HuggingFaceModel,
+    dataset: Dataset,
+    loss_fn: LossFn | Callable | None = None,
+    epochs: int = 3,
+    batch_size: int = 2,
+    lr: float = 2e-5,
+    lora_rank: int = 8,
+    lora_alpha: int | None = None,
+    lora_dropout: float = 0.05,
+    max_grad_norm: float = 1.0,
+    warmup_ratio: float = 0.1,
+) -> peft.PeftModel | peft.PeftMixedModel:
+    """Run LoRA-based supervised fine-tuning on a deployed model.
+
+    Args:
+        deployed: A DeployedModel with .model, .tokenizer, .device attributes.
+        dataset: A torch Dataset. Each item should be a dict of tensors.
+            Must include "input_ids" and "attention_mask".
+            If no custom loss_fn is provided, must also include "labels".
+        loss_fn: Custom loss function (outputs, batch) -> scalar tensor.
+            Defaults to outputs.loss (standard causal LM cross-entropy).
+        epochs: Number of training epochs.
+        batch_size: Per-device batch size.
+        lr: Learning rate for AdamW.
+        lora_rank: LoRA rank (r).
+        lora_alpha: LoRA alpha. Defaults to 2 * lora_rank.
+        lora_dropout: LoRA dropout.
+        max_grad_norm: Gradient clipping norm.
+        warmup_ratio: Fraction of total steps used for LR warmup.
+
+    Returns:
+        The trained PeftModel (caller is responsible for saving).
+    """
+    loss_fn = loss_fn or _default_loss
+    lora_alpha = lora_alpha if lora_alpha is not None else lora_rank * 2
+    device = deployed.device
 
     lora_config = peft.LoraConfig(
+        task_type=peft.TaskType.CAUSAL_LM,
+        r=lora_rank,
+        lora_alpha=lora_alpha,
+        lora_dropout=lora_dropout,
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-        r=8,
-        lora_alpha=16,
     )
-    lora_model = peft.get_peft_model(model=model.model, peft_config=lora_config)
-    optimizer = torch.optim.AdamW(params=lora_model.parameters(), lr=2e-4)
+    model = peft.get_peft_model(deployed.model, lora_config)
+    model.print_trainable_parameters()
 
-    tool_specs = normalize_tools(tools) or []
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    train_dl = DataLoader(
-        train_ds, batch_size=1, shuffle=True, collate_fn=lambda x: x[0]
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
+    total_steps = len(loader) * epochs
+    scheduler = get_cosine_schedule_with_warmup(
+        optimizer,
+        num_warmup_steps=max(1, int(total_steps * warmup_ratio)),
+        num_training_steps=total_steps,
     )
-    for sample in tqdm(train_dl, desc="training"):
-        optimizer.zero_grad()
 
-        messages = sample["messages"]
-        inputs = tokenize_masking_non_assistant_messages(
-            messages=messages, tokenizer=model.tokenizer, tool_specs=tool_specs
-        )
+    log.info("Starting training: %d epochs, %d steps/epoch", epochs, len(loader))
+    model.train()
 
-        outputs = lora_model(
-            input_ids=inputs["input_ids"].to(device=model.device),
-            labels=inputs["labels"].to(device=model.device),
-            attention_mask=inputs["attention_mask"].to(device=model.device),
-        )
+    for epoch in range(epochs):
+        epoch_loss = 0.0
+        epoch_steps = 0
 
-        outputs.loss.backward()
-        torch.nn.utils.clip_grad_norm_(lora_model.parameters(), 1.0)
-        optimizer.step()
+        for batch in tqdm(loader, desc=f"Epoch {epoch + 1}/{epochs}"):
+            batch = {k: v.to(device) for k, v in batch.items()}
 
-    lora_model.save_pretrained(f"./models/{model_id}-FT")
+            labels = batch.get("labels", batch["input_ids"].clone())
+            if "labels" not in batch:
+                labels[batch["attention_mask"] == 0] = -100
+
+            outputs = model(
+                input_ids=batch["input_ids"],
+                attention_mask=batch["attention_mask"],
+                labels=labels,
+            )
+
+            loss = loss_fn(outputs, batch)
+
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad()
+
+            epoch_loss += loss.item()
+            epoch_steps += 1
+
+        avg = epoch_loss / max(epoch_steps, 1)
+        log.info("Epoch %d/%d  loss=%.4f", epoch + 1, epochs, avg)
+
+    return model

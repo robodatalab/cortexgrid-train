@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Training facilities (SFT, LoRA) built on model-gateway"
 requires-python = ">=3.11"
 dependencies = [
-    "model-gateway @ git+https://github.com/piotrtrochim/model-gateway.git",
+    "model-gateway @ file:///Users/piotrtrochim/GitHub/model-gateway",
     "peft>=0.13.0",
     "torch>=2.0.0",
     "tqdm>=4.67.0",
@@ -17,3 +17,8 @@ allow-direct-references = true
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "types-tqdm>=4.67.3.20260402",
+]

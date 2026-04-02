@@ -1,6 +1,6 @@
-from model_training.sft import train_sft, tokenize_masking_non_assistant_messages
+from model_training.sft import train_sft, LossFn
 
 __all__ = [
+    "LossFn",
     "train_sft",
-    "tokenize_masking_non_assistant_messages",
 ]
