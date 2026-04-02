@@ -1,0 +1,16 @@
+[project]
+name = "model-training"
+version = "0.1.0"
+description = "Training facilities (SFT, LoRA) built on model-gateway"
+requires-python = ">=3.11"
+dependencies = [
+    "model-gateway @ git+https://github.com/piotrtrochim/model-gateway.git",
+    "peft>=0.13.0",
+    "torch>=2.0.0",
+    "tqdm>=4.67.0",
+    "transformers>=4.40.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
