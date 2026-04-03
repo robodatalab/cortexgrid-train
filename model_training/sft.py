@@ -14,7 +14,6 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 from transformers import get_cosine_schedule_with_warmup
 
-from model_gateway import Message, ToolSpec
 from model_gateway.providers.huggingface import HuggingFaceModel
 
 log = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ def _default_loss(outputs: Any, batch: dict[str, torch.Tensor]) -> torch.Tensor:
     return outputs.loss
 
 
-def train_sft(
+def train_sft_with_lora(
     deployed: HuggingFaceModel,
     dataset: Dataset,
     loss_fn: LossFn | Callable | None = None,
@@ -58,9 +57,19 @@ def train_sft(
         epochs: Number of training epochs.
         batch_size: Per-device batch size.
         lr: Learning rate for AdamW.
-        lora_rank: LoRA rank (r).
-        lora_alpha: LoRA alpha. Defaults to 2 * lora_rank.
-        lora_dropout: LoRA dropout.
+        lora_rank: How many new parameters LoRA adds per weight matrix.
+            At rank 1, each frozen weight W gets a tiny rank-1 correction
+            (outer product of two vectors), so the adapter is very small and
+            cheap but can only learn simple shifts. At rank 64+, the
+            correction becomes a rich matrix that can represent complex
+            task-specific changes, at the cost of proportionally more memory
+            and slower training. Typical values are 8-32; beyond ~64 you
+            approach full fine-tuning cost with diminishing returns.
+        lora_alpha: Scaling factor that controls the magnitude of the LoRA
+            update (effective scale is lora_alpha / lora_rank). Defaults to
+            2 * lora_rank, giving an effective scale of 2.
+        lora_dropout: Dropout probability applied to LoRA layers during
+            training to reduce overfitting on small datasets.
         max_grad_norm: Gradient clipping norm.
         warmup_ratio: Fraction of total steps used for LR warmup.
 

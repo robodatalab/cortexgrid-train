@@ -1,6 +1,6 @@
-from model_training.sft import train_sft, LossFn
+from model_training.sft import train_sft_with_lora, LossFn
 
 __all__ = [
     "LossFn",
-    "train_sft",
+    "train_sft_with_lora",
 ]

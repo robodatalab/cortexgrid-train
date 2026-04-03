@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import torch
 from torch.utils.data import Dataset
 
-from model_training import train_sft
+from model_training import train_sft_with_lora
 
 
 class _FakeDataset(Dataset):
@@ -58,14 +58,14 @@ class TestTrainSft(unittest.TestCase):
     def test_wraps_deployed_model_with_peft(self, mock_peft):
         self._setup_peft(mock_peft)
         deployed = self._make_deployed()
-        train_sft(deployed=deployed, dataset=self._make_dataset(), epochs=1)
+        train_sft_with_lora(deployed=deployed, dataset=self._make_dataset(), epochs=1)
         mock_peft.get_peft_model.assert_called_once_with(
             deployed.model, mock_peft.LoraConfig.return_value,
         )
 
     def test_creates_lora_with_expected_config(self, mock_peft):
         self._setup_peft(mock_peft)
-        train_sft(deployed=self._make_deployed(), dataset=self._make_dataset(), epochs=1)
+        train_sft_with_lora(deployed=self._make_deployed(), dataset=self._make_dataset(), epochs=1)
         mock_peft.LoraConfig.assert_called_once()
         kw = mock_peft.LoraConfig.call_args.kwargs
         self.assertEqual(kw["target_modules"], ["q_proj", "k_proj", "v_proj", "o_proj"])
@@ -74,7 +74,7 @@ class TestTrainSft(unittest.TestCase):
 
     def test_custom_lora_rank(self, mock_peft):
         self._setup_peft(mock_peft)
-        train_sft(
+        train_sft_with_lora(
             deployed=self._make_deployed(),
             dataset=self._make_dataset(),
             epochs=1,
@@ -87,7 +87,7 @@ class TestTrainSft(unittest.TestCase):
 
     def test_returns_peft_model(self, mock_peft):
         lora_model = self._setup_peft(mock_peft)
-        result = train_sft(
+        result = train_sft_with_lora(
             deployed=self._make_deployed(), dataset=self._make_dataset(), epochs=1,
         )
         self.assertIs(result, lora_model)
@@ -95,7 +95,7 @@ class TestTrainSft(unittest.TestCase):
     def test_forward_pass_per_batch(self, mock_peft):
         lora_model = self._setup_peft(mock_peft)
         n, epochs = 3, 1
-        train_sft(
+        train_sft_with_lora(
             deployed=self._make_deployed(),
             dataset=self._make_dataset(n),
             epochs=epochs,
@@ -106,7 +106,7 @@ class TestTrainSft(unittest.TestCase):
 
     def test_trains_for_multiple_epochs(self, mock_peft):
         lora_model = self._setup_peft(mock_peft)
-        train_sft(
+        train_sft_with_lora(
             deployed=self._make_deployed(),
             dataset=self._make_dataset(1),
             epochs=3,
