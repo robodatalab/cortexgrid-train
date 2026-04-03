@@ -4,12 +4,15 @@ version = "0.1.0"
 description = "Training facilities (SFT, LoRA) built on model-gateway"
 requires-python = ">=3.11"
 dependencies = [
-    "model-gateway @ file:///Users/piotrtrochim/GitHub/model-gateway",
+    "model-gateway",
     "peft>=0.13.0",
     "torch>=2.0.0",
     "tqdm>=4.67.0",
     "transformers>=4.40.0",
 ]
+
+[tool.uv.sources]
+model-gateway = { git = "https://github.com/paksas/model-gateway.git" }
 
 [tool.hatch.metadata]
 allow-direct-references = true
