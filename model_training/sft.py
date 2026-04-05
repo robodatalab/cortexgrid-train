@@ -8,13 +8,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Protocol
 
-import peft
 import torch
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 from transformers import get_cosine_schedule_with_warmup
 
-from model_gateway.providers.huggingface import HuggingFaceModel
 
 log = logging.getLogger(__name__)
 
@@ -32,23 +30,20 @@ def _default_loss(outputs: Any, batch: dict[str, torch.Tensor]) -> torch.Tensor:
     return outputs.loss
 
 
-def train_sft_with_lora(
-    deployed: HuggingFaceModel,
+def train_sft(
+    model: torch.nn.Module,
     dataset: Dataset,
     loss_fn: LossFn | Callable | None = None,
     epochs: int = 3,
     batch_size: int = 2,
     lr: float = 2e-5,
-    lora_rank: int = 8,
-    lora_alpha: int | None = None,
-    lora_dropout: float = 0.05,
     max_grad_norm: float = 1.0,
     warmup_ratio: float = 0.1,
-) -> peft.PeftModel | peft.PeftMixedModel:
-    """Run LoRA-based supervised fine-tuning on a deployed model.
+) -> torch.nn.Module:
+    """Run supervised fine-tuning on a model.
 
     Args:
-        deployed: A DeployedModel with .model, .tokenizer, .device attributes.
+        model: Model to be tuned.
         dataset: A torch Dataset. Each item should be a dict of tensors.
             Must include "input_ids" and "attention_mask".
             If no custom loss_fn is provided, must also include "labels".
@@ -57,19 +52,6 @@ def train_sft_with_lora(
         epochs: Number of training epochs.
         batch_size: Per-device batch size.
         lr: Learning rate for AdamW.
-        lora_rank: How many new parameters LoRA adds per weight matrix.
-            At rank 1, each frozen weight W gets a tiny rank-1 correction
-            (outer product of two vectors), so the adapter is very small and
-            cheap but can only learn simple shifts. At rank 64+, the
-            correction becomes a rich matrix that can represent complex
-            task-specific changes, at the cost of proportionally more memory
-            and slower training. Typical values are 8-32; beyond ~64 you
-            approach full fine-tuning cost with diminishing returns.
-        lora_alpha: Scaling factor that controls the magnitude of the LoRA
-            update (effective scale is lora_alpha / lora_rank). Defaults to
-            2 * lora_rank, giving an effective scale of 2.
-        lora_dropout: Dropout probability applied to LoRA layers during
-            training to reduce overfitting on small datasets.
         max_grad_norm: Gradient clipping norm.
         warmup_ratio: Fraction of total steps used for LR warmup.
 
@@ -77,18 +59,7 @@ def train_sft_with_lora(
         The trained PeftModel (caller is responsible for saving).
     """
     loss_fn = loss_fn or _default_loss
-    lora_alpha = lora_alpha if lora_alpha is not None else lora_rank * 2
-    device = deployed.device
-
-    lora_config = peft.LoraConfig(
-        task_type=peft.TaskType.CAUSAL_LM,
-        r=lora_rank,
-        lora_alpha=lora_alpha,
-        lora_dropout=lora_dropout,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-    )
-    model = peft.get_peft_model(deployed.model, lora_config)
-    model.print_trainable_parameters()
+    device = model.device
 
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 

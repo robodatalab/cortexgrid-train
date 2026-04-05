@@ -500,23 +500,13 @@ wheels = [
 [[package]]
 name = "model-gateway"
 version = "0.1.0"
-source = { directory = "../model-gateway" }
+source = { git = "https://github.com/paksas/model-gateway.git#fc090e923e5650247feafeea9192b5c95cc30f68" }
 dependencies = [
     { name = "anthropic" },
     { name = "python-dotenv" },
     { name = "torch" },
     { name = "transformers" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "anthropic", specifier = ">=0.40.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "torch", specifier = ">=2.0.0" },
-    { name = "transformers", specifier = ">=4.40.0" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "model-training"
@@ -537,7 +527,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "model-gateway", directory = "../model-gateway" },
+    { name = "model-gateway", git = "https://github.com/paksas/model-gateway.git" },
     { name = "peft", specifier = ">=0.13.0" },
     { name = "torch", specifier = ">=2.0.0" },
     { name = "tqdm", specifier = ">=4.67.0" },
