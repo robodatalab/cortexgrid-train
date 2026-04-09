@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Training facilities (SFT, LoRA) built on model-gateway"
 requires-python = ">=3.11"
 dependencies = [
+    "mlflow>=3.11.1",
     "model-gateway",
     "peft>=0.13.0",
     "torch>=2.0.0",

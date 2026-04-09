@@ -8,10 +8,13 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Protocol
 
+import mlflow
 import torch
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 from transformers import get_cosine_schedule_with_warmup
+
+from model_training.util import mlflow_active
 
 
 log = logging.getLogger(__name__)
@@ -72,7 +75,21 @@ def train_sft(
     )
 
     log.info("Starting training: %d epochs, %d steps/epoch", epochs, len(loader))
+
+    if mlflow_active():
+        mlflow.log_params(
+            {
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "lr": lr,
+                "max_grad_norm": max_grad_norm,
+                "warmup_ratio": warmup_ratio,
+                "total_steps": total_steps,
+            }
+        )
+
     model.train()
+    global_step = 0
 
     for epoch in range(epochs):
         epoch_loss = 0.0
@@ -99,10 +116,23 @@ def train_sft(
             scheduler.step()
             optimizer.zero_grad()
 
-            epoch_loss += loss.item()
+            step_loss = loss.item()
+            epoch_loss += step_loss
             epoch_steps += 1
+            global_step += 1
+
+            if mlflow_active():
+                mlflow.log_metrics(
+                    {
+                        "train/loss": step_loss,
+                        "train/lr": float(scheduler.get_last_lr()[0]),
+                    },
+                    step=global_step,
+                )
 
         avg = epoch_loss / max(epoch_steps, 1)
         log.info("Epoch %d/%d  loss=%.4f", epoch + 1, epochs, avg)
+        if mlflow_active():
+            mlflow.log_metric("train/epoch_loss", avg, step=epoch + 1)
 
     return model
