@@ -2,6 +2,7 @@
 
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import torch
 from torch.utils.data import Dataset
@@ -35,6 +36,7 @@ class _MockModel(torch.nn.Module):
         return SimpleNamespace(loss=self.weight.sum())
 
 
+@patch("model_training.sft.cortexflow")
 class TestTrainSft(unittest.TestCase):
     @staticmethod
     def _make_dataset(n=1):
@@ -49,7 +51,8 @@ class TestTrainSft(unittest.TestCase):
             ]
         )
 
-    def test_forward_pass_per_batch(self):
+    def test_forward_pass_per_batch(self, mock_cortexflow):
+        mock_cortexflow.resume.return_value = None
         model = _MockModel()
         n, epochs = 3, 1
         train_sft(
@@ -61,7 +64,8 @@ class TestTrainSft(unittest.TestCase):
         # ceil(3/2) = 2 batches per epoch, 1 epoch
         self.assertEqual(model.call_count, 2)
 
-    def test_trains_for_multiple_epochs(self):
+    def test_trains_for_multiple_epochs(self, mock_cortexflow):
+        mock_cortexflow.resume.return_value = None
         model = _MockModel()
         train_sft(
             model=model,

@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Protocol
 
+import cortexflow
 import mlflow
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -88,10 +89,19 @@ def train_sft(
             }
         )
 
-    model.train()
+    start_epoch = 0
     global_step = 0
 
-    for epoch in range(epochs):
+    ckpt = cortexflow.resume()
+    if ckpt:
+        ckpt.restore_training_state(model, optimizer, scheduler)
+        start_epoch = ckpt.epoch + 1
+        global_step = ckpt.global_step
+        log.info("Resumed from checkpoint: epoch=%d, global_step=%d", ckpt.epoch, global_step)
+
+    model.train()
+
+    for epoch in range(start_epoch, epochs):
         epoch_loss = 0.0
         epoch_steps = 0
 
@@ -134,5 +144,10 @@ def train_sft(
         log.info("Epoch %d/%d  loss=%.4f", epoch + 1, epochs, avg)
         if mlflow_active():
             mlflow.log_metric("train/epoch_loss", avg, step=epoch + 1)
+
+        with cortexflow.checkpoint() as ckpt:
+            ckpt.epoch = epoch
+            ckpt.global_step = global_step
+            ckpt.save_training_state(model, optimizer, scheduler)
 
     return model

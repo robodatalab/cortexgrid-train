@@ -41,10 +41,12 @@ class _MockModel(torch.nn.Module):
         return SimpleNamespace(loss=self.weight.sum())
 
 
+@patch("model_training.sft.cortexflow")
 class TestSftMlflowTracking(unittest.TestCase):
     @patch("model_training.sft.mlflow")
     @patch("model_training.sft.mlflow_active", return_value=True)
-    def test_logs_params_when_active(self, _active, mock_mlflow):
+    def test_logs_params_when_active(self, _active, mock_mlflow, mock_cortexflow):
+        mock_cortexflow.resume.return_value = None
         train_sft(
             model=_MockModel(),
             dataset=_FakeDataset(1),
@@ -58,7 +60,8 @@ class TestSftMlflowTracking(unittest.TestCase):
 
     @patch("model_training.sft.mlflow")
     @patch("model_training.sft.mlflow_active", return_value=True)
-    def test_logs_step_metrics_when_active(self, _active, mock_mlflow):
+    def test_logs_step_metrics_when_active(self, _active, mock_mlflow, mock_cortexflow):
+        mock_cortexflow.resume.return_value = None
         train_sft(
             model=_MockModel(),
             dataset=_FakeDataset(2),
@@ -74,7 +77,8 @@ class TestSftMlflowTracking(unittest.TestCase):
 
     @patch("model_training.sft.mlflow")
     @patch("model_training.sft.mlflow_active", return_value=True)
-    def test_logs_epoch_loss_when_active(self, _active, mock_mlflow):
+    def test_logs_epoch_loss_when_active(self, _active, mock_mlflow, mock_cortexflow):
+        mock_cortexflow.resume.return_value = None
         train_sft(
             model=_MockModel(),
             dataset=_FakeDataset(1),
@@ -88,7 +92,8 @@ class TestSftMlflowTracking(unittest.TestCase):
 
     @patch("model_training.sft.mlflow")
     @patch("model_training.sft.mlflow_active", return_value=False)
-    def test_no_mlflow_calls_when_inactive(self, _active, mock_mlflow):
+    def test_no_mlflow_calls_when_inactive(self, _active, mock_mlflow, mock_cortexflow):
+        mock_cortexflow.resume.return_value = None
         train_sft(
             model=_MockModel(),
             dataset=_FakeDataset(2),
@@ -100,12 +105,14 @@ class TestSftMlflowTracking(unittest.TestCase):
         mock_mlflow.log_metric.assert_not_called()
 
 
+@patch("model_training.sft.cortexflow")
 class TestSftMlflowMidTrainingActivation(unittest.TestCase):
     """Verify that tracking responds to mlflow_active() changing mid-training."""
 
     @patch("model_training.sft.mlflow")
     @patch("model_training.sft.mlflow_active")
-    def test_starts_inactive_then_becomes_active(self, mock_active, mock_mlflow):
+    def test_starts_inactive_then_becomes_active(self, mock_active, mock_mlflow, mock_cortexflow):
+        mock_cortexflow.resume.return_value = None
         # First call (log_params check) -> inactive
         # Subsequent calls (step metrics, epoch loss) -> active
         mock_active.side_effect = [False, True, True]
