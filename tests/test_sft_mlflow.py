@@ -1,4 +1,4 @@
-"""Tests for MLflow tracking integration in train_sft."""
+"""Tests for cortexflow tracking integration in train_sft."""
 
 import unittest
 from types import SimpleNamespace
@@ -42,10 +42,8 @@ class _MockModel(torch.nn.Module):
 
 
 @patch("model_training.sft.cortexflow")
-class TestSftMlflowTracking(unittest.TestCase):
-    @patch("model_training.sft.mlflow")
-    @patch("model_training.sft.mlflow_active", return_value=True)
-    def test_logs_params_when_active(self, _active, mock_mlflow, mock_cortexflow):
+class TestSftCortexflowTracking(unittest.TestCase):
+    def test_logs_params(self, mock_cortexflow):
         mock_cortexflow.resume.return_value = None
         train_sft(
             model=_MockModel(),
@@ -53,14 +51,12 @@ class TestSftMlflowTracking(unittest.TestCase):
             epochs=1,
             batch_size=1,
         )
-        mock_mlflow.log_params.assert_called_once()
-        params = mock_mlflow.log_params.call_args[0][0]
+        mock_cortexflow.log_params.assert_called_once()
+        params = mock_cortexflow.log_params.call_args[0][0]
         self.assertEqual(params["epochs"], 1)
         self.assertEqual(params["batch_size"], 1)
 
-    @patch("model_training.sft.mlflow")
-    @patch("model_training.sft.mlflow_active", return_value=True)
-    def test_logs_step_metrics_when_active(self, _active, mock_mlflow, mock_cortexflow):
+    def test_logs_step_metrics(self, mock_cortexflow):
         mock_cortexflow.resume.return_value = None
         train_sft(
             model=_MockModel(),
@@ -68,16 +64,13 @@ class TestSftMlflowTracking(unittest.TestCase):
             epochs=1,
             batch_size=1,
         )
-        # 2 steps -> 2 log_metrics calls
-        self.assertEqual(mock_mlflow.log_metrics.call_count, 2)
-        for call in mock_mlflow.log_metrics.call_args_list:
+        self.assertEqual(mock_cortexflow.log_metrics.call_count, 2)
+        for call in mock_cortexflow.log_metrics.call_args_list:
             metrics = call[0][0]
             self.assertIn("train/loss", metrics)
             self.assertIn("train/lr", metrics)
 
-    @patch("model_training.sft.mlflow")
-    @patch("model_training.sft.mlflow_active", return_value=True)
-    def test_logs_epoch_loss_when_active(self, _active, mock_mlflow, mock_cortexflow):
+    def test_logs_epoch_loss(self, mock_cortexflow):
         mock_cortexflow.resume.return_value = None
         train_sft(
             model=_MockModel(),
@@ -85,46 +78,27 @@ class TestSftMlflowTracking(unittest.TestCase):
             epochs=2,
             batch_size=1,
         )
-        # 2 epochs -> 2 log_metric calls for epoch_loss
-        self.assertEqual(mock_mlflow.log_metric.call_count, 2)
-        for call in mock_mlflow.log_metric.call_args_list:
-            self.assertEqual(call[0][0], "train/epoch_loss")
+        epoch_loss_calls = [
+            c
+            for c in mock_cortexflow.log_metric.call_args_list
+            if c[0][0] == "train/epoch_loss"
+        ]
+        self.assertEqual(len(epoch_loss_calls), 2)
 
-    @patch("model_training.sft.mlflow")
-    @patch("model_training.sft.mlflow_active", return_value=False)
-    def test_no_mlflow_calls_when_inactive(self, _active, mock_mlflow, mock_cortexflow):
+    def test_logs_heartbeat_per_epoch(self, mock_cortexflow):
         mock_cortexflow.resume.return_value = None
-        train_sft(
-            model=_MockModel(),
-            dataset=_FakeDataset(2),
-            epochs=2,
-            batch_size=1,
-        )
-        mock_mlflow.log_params.assert_not_called()
-        mock_mlflow.log_metrics.assert_not_called()
-        mock_mlflow.log_metric.assert_not_called()
-
-
-@patch("model_training.sft.cortexflow")
-class TestSftMlflowMidTrainingActivation(unittest.TestCase):
-    """Verify that tracking responds to mlflow_active() changing mid-training."""
-
-    @patch("model_training.sft.mlflow")
-    @patch("model_training.sft.mlflow_active")
-    def test_starts_inactive_then_becomes_active(self, mock_active, mock_mlflow, mock_cortexflow):
-        mock_cortexflow.resume.return_value = None
-        # First call (log_params check) -> inactive
-        # Subsequent calls (step metrics, epoch loss) -> active
-        mock_active.side_effect = [False, True, True]
         train_sft(
             model=_MockModel(),
             dataset=_FakeDataset(1),
-            epochs=1,
+            epochs=3,
             batch_size=1,
         )
-        mock_mlflow.log_params.assert_not_called()
-        mock_mlflow.log_metrics.assert_called_once()
-        mock_mlflow.log_metric.assert_called_once()
+        heartbeat_calls = [
+            c
+            for c in mock_cortexflow.log_metric.call_args_list
+            if c[0][0] == "heartbeat"
+        ]
+        self.assertEqual(len(heartbeat_calls), 3)
 
 
 if __name__ == "__main__":

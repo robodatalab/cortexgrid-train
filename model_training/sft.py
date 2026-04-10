@@ -6,16 +6,13 @@ Supports only the Huggingface model API.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Callable, Protocol
 
-import cortexflow
-import mlflow
+import cortexflow  # type: ignore
 import torch
 from torch.utils.data import Dataset, DataLoader
-from tqdm import tqdm
 from transformers import get_cosine_schedule_with_warmup
-
-from model_training.util import mlflow_active
 
 
 log = logging.getLogger(__name__)
@@ -77,17 +74,16 @@ def train_sft(
 
     log.info("Starting training: %d epochs, %d steps/epoch", epochs, len(loader))
 
-    if mlflow_active():
-        mlflow.log_params(
-            {
-                "epochs": epochs,
-                "batch_size": batch_size,
-                "lr": lr,
-                "max_grad_norm": max_grad_norm,
-                "warmup_ratio": warmup_ratio,
-                "total_steps": total_steps,
-            }
-        )
+    cortexflow.log_params(
+        {
+            "epochs": epochs,
+            "batch_size": batch_size,
+            "lr": lr,
+            "max_grad_norm": max_grad_norm,
+            "warmup_ratio": warmup_ratio,
+            "total_steps": total_steps,
+        }
+    )
 
     start_epoch = 0
     global_step = 0
@@ -97,15 +93,18 @@ def train_sft(
         ckpt.restore_training_state(model, optimizer, scheduler)
         start_epoch = ckpt.epoch + 1
         global_step = ckpt.global_step
-        log.info("Resumed from checkpoint: epoch=%d, global_step=%d", ckpt.epoch, global_step)
+        log.info(
+            "Resumed from checkpoint: epoch=%d, global_step=%d", ckpt.epoch, global_step
+        )
 
     model.train()
 
     for epoch in range(start_epoch, epochs):
+        cortexflow.log_metric("heartbeat", time.time(), step=global_step)
         epoch_loss = 0.0
         epoch_steps = 0
 
-        for batch in tqdm(loader, desc=f"Epoch {epoch + 1}/{epochs}"):
+        for batch in loader:
             batch = {k: v.to(device) for k, v in batch.items()}
 
             labels = batch.get("labels", batch["input_ids"].clone())
@@ -127,23 +126,22 @@ def train_sft(
             optimizer.zero_grad()
 
             step_loss = loss.item()
+            log.info("step %d/%d loss=%.4f", global_step, total_steps, step_loss)
             epoch_loss += step_loss
             epoch_steps += 1
             global_step += 1
 
-            if mlflow_active():
-                mlflow.log_metrics(
-                    {
-                        "train/loss": step_loss,
-                        "train/lr": float(scheduler.get_last_lr()[0]),
-                    },
-                    step=global_step,
-                )
+            cortexflow.log_metrics(
+                {
+                    "train/loss": step_loss,
+                    "train/lr": float(scheduler.get_last_lr()[0]),
+                },
+                step=global_step,
+            )
 
         avg = epoch_loss / max(epoch_steps, 1)
         log.info("Epoch %d/%d  loss=%.4f", epoch + 1, epochs, avg)
-        if mlflow_active():
-            mlflow.log_metric("train/epoch_loss", avg, step=epoch + 1)
+        cortexflow.log_metric("train/epoch_loss", avg, step=epoch + 1)
 
         with cortexflow.checkpoint() as ckpt:
             ckpt.epoch = epoch

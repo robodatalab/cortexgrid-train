@@ -1816,7 +1816,6 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "cortexflow" },
-    { name = "mlflow" },
     { name = "model-gateway" },
     { name = "peft" },
     { name = "torch" },
@@ -1832,7 +1831,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "cortexflow", git = "https://github.com/paksas/robolab-infra.git" },
-    { name = "mlflow", specifier = ">=3.11.1" },
     { name = "model-gateway", git = "https://github.com/paksas/model-gateway.git" },
     { name = "peft", specifier = ">=0.13.0" },
     { name = "torch", specifier = ">=2.0.0" },
