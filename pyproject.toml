@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-cortexflow = { git = "https://github.com/paksas/robolab-infra.git"}
+cortexflow = { git = "https://github.com/paksas/robolab-infra.git", rev="09ec54aacec6be0d9d6b89242b39372721f35d72"}
 model-gateway = { git = "https://github.com/paksas/model-gateway.git" }
 
 [tool.hatch.metadata]
