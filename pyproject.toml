@@ -1,6 +1,6 @@
 [project]
 name = "model-training"
-version = "0.1.0"
+version = "0.1.1"
 description = "Training facilities (SFT, LoRA) built on model-gateway"
 requires-python = ">=3.11"
 dependencies = [
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-cortexflow = { git = "https://github.com/paksas/robolab-infra.git" }
+cortexflow = { git = "https://github.com/paksas/robolab-infra.git", rev="a21fa661cf37770be686d094aaa43177f9834128"}
 model-gateway = { git = "https://github.com/paksas/model-gateway.git" }
 
 [tool.hatch.metadata]
