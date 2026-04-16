@@ -12,9 +12,15 @@ dependencies = [
     "transformers>=4.40.0",
 ]
 
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.uv.sources]
 cortexflow = { git = "https://github.com/paksas/robolab-infra.git", rev="463d7afbfe94ade63cc9c5909f0b25b7205fe8c2"}
 model-gateway = { git = "https://github.com/paksas/model-gateway.git" }
+torch = { index = "pytorch-cpu" }
 
 [tool.hatch.metadata]
 allow-direct-references = true

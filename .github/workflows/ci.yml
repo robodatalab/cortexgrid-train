@@ -23,7 +23,7 @@ jobs:
         run: git config --global url."https://${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
 
       - name: Install dependencies
-        run: uv sync --extra-index-url https://download.pytorch.org/whl/cpu
+        run: uv sync
 
       - name: Run tests
         run: uv run python -m unittest discover -s tests -v
