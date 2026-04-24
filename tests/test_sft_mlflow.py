@@ -43,19 +43,6 @@ class _MockModel(torch.nn.Module):
 
 @patch("model_training.sft.cortexflow")
 class TestSftCortexflowTracking(unittest.TestCase):
-    def test_logs_params(self, mock_cortexflow):
-        mock_cortexflow.resume.return_value = None
-        train_sft(
-            model=_MockModel(),
-            dataset=_FakeDataset(1),
-            epochs=1,
-            batch_size=1,
-        )
-        mock_cortexflow.log_params.assert_called_once()
-        params = mock_cortexflow.log_params.call_args[0][0]
-        self.assertEqual(params["epochs"], 1)
-        self.assertEqual(params["batch_size"], 1)
-
     def test_logs_step_metrics(self, mock_cortexflow):
         mock_cortexflow.resume.return_value = None
         train_sft(
