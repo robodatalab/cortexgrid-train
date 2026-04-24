@@ -74,17 +74,6 @@ def train_sft(
 
     log.info("Starting training: %d epochs, %d steps/epoch", epochs, len(loader))
 
-    cortexflow.log_params(
-        {
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "lr": lr,
-            "max_grad_norm": max_grad_norm,
-            "warmup_ratio": warmup_ratio,
-            "total_steps": total_steps,
-        }
-    )
-
     start_epoch = 0
     global_step = 0
 
