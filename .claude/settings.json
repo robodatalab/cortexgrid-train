@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(grep -A 1 '^name = \"tqdm\"$' uv.lock)"
-    ]
-  }
-}
