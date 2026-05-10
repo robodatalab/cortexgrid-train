@@ -1,6 +1,6 @@
 [project]
 name = "model-training"
-version = "0.1.3"
+version = "0.1.4"
 description = "Training facilities (SFT, LoRA) built on model-gateway"
 requires-python = ">=3.11"
 dependencies = [
