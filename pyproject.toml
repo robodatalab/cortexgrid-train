@@ -18,8 +18,8 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [tool.uv.sources]
-cortexflow = { git = "https://github.com/paksas/robolab-infra.git"}
-model-gateway = { git = "https://github.com/paksas/model-gateway.git" }
+cortexflow = { git = "https://github.com/robodatalab/robolab-infra.git"}
+model-gateway = { git = "https://github.com/robodatalab/model-gateway.git" }
 torch = { index = "pytorch-cpu" }
 
 [tool.hatch.metadata]
