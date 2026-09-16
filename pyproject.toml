@@ -1,6 +1,6 @@
 [project]
 name = "cortexgrid-train"
-version = "0.1.6"
+version = "0.1.7"
 description = "PyTorch training loops instrumented for cortexgrid: metrics, checkpoints, and resume"
 readme = "README.md"
 license = "Apache-2.0"
