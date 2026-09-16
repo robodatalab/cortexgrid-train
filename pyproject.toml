@@ -4,7 +4,7 @@ version = "0.1.6"
 description = "Training facilities (SFT, LoRA) built on model-gateway"
 requires-python = ">=3.11"
 dependencies = [
-    "cortexflow",
+    "cortexgrid",
     "model-gateway",
     "peft>=0.13.0",
     "torch>=2.0.0",
@@ -18,7 +18,6 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [tool.uv.sources]
-cortexflow = { git = "https://github.com/robodatalab/robolab-infra.git"}
 model-gateway = { git = "https://github.com/robodatalab/model-gateway.git" }
 torch = { index = "pytorch-cpu" }
 

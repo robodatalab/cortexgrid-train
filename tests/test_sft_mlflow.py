@@ -1,4 +1,4 @@
-"""Tests for cortexflow tracking integration in train_sft."""
+"""Tests for cortexgrid tracking integration in train_sft."""
 
 import unittest
 from types import SimpleNamespace
@@ -41,24 +41,24 @@ class _MockModel(torch.nn.Module):
         return SimpleNamespace(loss=self.weight.sum())
 
 
-@patch("model_training.sft.cortexflow")
-class TestSftCortexflowTracking(unittest.TestCase):
-    def test_logs_step_metrics(self, mock_cortexflow):
-        mock_cortexflow.resume.return_value = None
+@patch("model_training.sft.cortexgrid")
+class TestSftCortexgridTracking(unittest.TestCase):
+    def test_logs_step_metrics(self, mock_cortexgrid):
+        mock_cortexgrid.resume.return_value = None
         train_sft(
             model=_MockModel(),
             dataset=_FakeDataset(2),
             epochs=1,
             batch_size=1,
         )
-        self.assertEqual(mock_cortexflow.log_metrics.call_count, 2)
-        for call in mock_cortexflow.log_metrics.call_args_list:
+        self.assertEqual(mock_cortexgrid.log_metrics.call_count, 2)
+        for call in mock_cortexgrid.log_metrics.call_args_list:
             metrics = call[0][0]
             self.assertIn("train/loss", metrics)
             self.assertIn("train/lr", metrics)
 
-    def test_logs_epoch_loss(self, mock_cortexflow):
-        mock_cortexflow.resume.return_value = None
+    def test_logs_epoch_loss(self, mock_cortexgrid):
+        mock_cortexgrid.resume.return_value = None
         train_sft(
             model=_MockModel(),
             dataset=_FakeDataset(1),
@@ -67,13 +67,13 @@ class TestSftCortexflowTracking(unittest.TestCase):
         )
         epoch_loss_calls = [
             c
-            for c in mock_cortexflow.log_metric.call_args_list
+            for c in mock_cortexgrid.log_metric.call_args_list
             if c[0][0] == "train/epoch_loss"
         ]
         self.assertEqual(len(epoch_loss_calls), 2)
 
-    def test_logs_heartbeat_per_epoch(self, mock_cortexflow):
-        mock_cortexflow.resume.return_value = None
+    def test_logs_heartbeat_per_epoch(self, mock_cortexgrid):
+        mock_cortexgrid.resume.return_value = None
         train_sft(
             model=_MockModel(),
             dataset=_FakeDataset(1),
@@ -82,7 +82,7 @@ class TestSftCortexflowTracking(unittest.TestCase):
         )
         heartbeat_calls = [
             c
-            for c in mock_cortexflow.log_metric.call_args_list
+            for c in mock_cortexgrid.log_metric.call_args_list
             if c[0][0] == "heartbeat"
         ]
         self.assertEqual(len(heartbeat_calls), 3)

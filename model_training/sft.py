@@ -9,7 +9,7 @@ import logging
 import time
 from typing import Any, Callable, Protocol
 
-import cortexflow  # type: ignore
+import cortexgrid  # type: ignore
 import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import get_cosine_schedule_with_warmup
@@ -77,7 +77,7 @@ def train_sft(
     start_epoch = 0
     global_step = 0
 
-    ckpt = cortexflow.resume()
+    ckpt = cortexgrid.resume()
     if ckpt:
         ckpt.restore_training_state(model, optimizer, scheduler)
         start_epoch = ckpt.epoch + 1
@@ -89,7 +89,7 @@ def train_sft(
     model.train()
 
     for epoch in range(start_epoch, epochs):
-        cortexflow.log_metric("heartbeat", time.time(), step=global_step)
+        cortexgrid.log_metric("heartbeat", time.time(), step=global_step)
         epoch_loss = 0.0
         epoch_steps = 0
 
@@ -120,7 +120,7 @@ def train_sft(
             epoch_steps += 1
             global_step += 1
 
-            cortexflow.log_metrics(
+            cortexgrid.log_metrics(
                 {
                     "train/loss": step_loss,
                     "train/lr": float(scheduler.get_last_lr()[0]),
@@ -130,9 +130,9 @@ def train_sft(
 
         avg = epoch_loss / max(epoch_steps, 1)
         log.info("Epoch %d/%d  loss=%.4f", epoch + 1, epochs, avg)
-        cortexflow.log_metric("train/epoch_loss", avg, step=epoch + 1)
+        cortexgrid.log_metric("train/epoch_loss", avg, step=epoch + 1)
 
-        with cortexflow.checkpoint() as ckpt:
+        with cortexgrid.checkpoint() as ckpt:
             ckpt.epoch = epoch
             ckpt.global_step = global_step
             ckpt.save_training_state(model, optimizer, scheduler)
