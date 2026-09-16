@@ -14,5 +14,4 @@ venv/
 .mypy_cache/
 .pytest_cache/
 models/
-uv.lock
 .claude/
