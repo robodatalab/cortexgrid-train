@@ -7,7 +7,8 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "cortexgrid",
+    # 0.2.93: works with the Ray 2.58 cluster (Python 3.11.13).
+    "cortexgrid>=0.2.93",
     "peft>=0.13.0",
     "torch>=2.0.0",
     "tqdm>=4.67.0",
