@@ -7,7 +7,7 @@ from unittest.mock import patch
 import torch
 from torch.utils.data import Dataset
 
-from model_training import train_sft
+from cortexgrid_train import train_sft
 
 
 class _FakeDataset(Dataset):
@@ -41,7 +41,7 @@ class _MockModel(torch.nn.Module):
         return SimpleNamespace(loss=self.weight.sum())
 
 
-@patch("model_training.sft.cortexgrid")
+@patch("cortexgrid_train.sft.cortexgrid")
 class TestSftCortexgridTracking(unittest.TestCase):
     def test_logs_step_metrics(self, mock_cortexgrid):
         mock_cortexgrid.resume.return_value = None
