@@ -1,4 +1,4 @@
-"""Unit tests for model_training public API."""
+"""Unit tests for cortexgrid_train public API."""
 
 import unittest
 from types import SimpleNamespace
@@ -7,7 +7,7 @@ from unittest.mock import patch
 import torch
 from torch.utils.data import Dataset
 
-from model_training import train_sft
+from cortexgrid_train import train_sft
 
 
 class _FakeDataset(Dataset):
@@ -36,7 +36,7 @@ class _MockModel(torch.nn.Module):
         return SimpleNamespace(loss=self.weight.sum())
 
 
-@patch("model_training.sft.cortexflow")
+@patch("cortexgrid_train.sft.cortexgrid")
 class TestTrainSft(unittest.TestCase):
     @staticmethod
     def _make_dataset(n=1):
@@ -51,8 +51,8 @@ class TestTrainSft(unittest.TestCase):
             ]
         )
 
-    def test_forward_pass_per_batch(self, mock_cortexflow):
-        mock_cortexflow.resume.return_value = None
+    def test_forward_pass_per_batch(self, mock_cortexgrid):
+        mock_cortexgrid.resume.return_value = None
         model = _MockModel()
         n, epochs = 3, 1
         train_sft(
@@ -64,8 +64,8 @@ class TestTrainSft(unittest.TestCase):
         # ceil(3/2) = 2 batches per epoch, 1 epoch
         self.assertEqual(model.call_count, 2)
 
-    def test_trains_for_multiple_epochs(self, mock_cortexflow):
-        mock_cortexflow.resume.return_value = None
+    def test_trains_for_multiple_epochs(self, mock_cortexgrid):
+        mock_cortexgrid.resume.return_value = None
         model = _MockModel()
         train_sft(
             model=model,
